@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ProfitNova - Nebula & Staking Platform</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- FontAwesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+        :root {
+            --background: #0a0a0a;
+            --background-deep: #030808;
+            --foreground: #e8e8e8;
+            --accent: #14f195;
+            --accent-dim: rgba(20, 241, 149, 0.3);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        html, body {
+            overflow-x: hidden;
+            background: var(--background-deep);
+            color: var(--foreground);
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            min-height: 100vh;
+        }
+
+        /* Canvas Container for Mobile */
+        .canvas-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 0;
+        }
+        .canvas-container canvas {
+            display: block;
+            width: 100% !important;
+            height: 100% !important;
+        }
+
+        /* Grain Overlay */
+        .grain-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 100;
+            opacity: 0.03;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+        }
+
+        .overlay-panel {
+            background: rgba(10, 26, 20, 0.75);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(20, 241, 149, 0.15);
+            border-radius: 12px;
+            padding: 12px;
+        }
+
+        /* Controls Overlay - Optimized for mobile view */
+        .controls-overlay {
+            position: fixed;
+            top: 16px;
+            left: 16px;
+            z-index: 20;
+            width: 160px;
+        }
+
+        .panel-header {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 10px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid rgba(20, 241, 149, 0.1);
+        }
+
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--accent);
+            box-shadow: 0 0 8px var(--accent);
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .status-text {
+            color: rgba(20, 241, 149, 0.8);
+            font-size: 9px;
+            text-transform: uppercase;
+        }
+
+        .flow-section { margin-bottom: 10px; }
+        .flow-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+        .label { color: rgba(20, 241, 149, 0.5); font-size: 9px; text-transform: uppercase; }
+        .value { color: rgba(20, 241, 149, 0.9); font-size: 11px; }
+        .progress-bar { height: 3px; background: rgba(20, 241, 149, 0.1); border-radius: 3px; overflow: hidden; }
+        .progress-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #00d4aa, #14f195); }
+        .params-grid { display: flex; flex-direction: column; gap: 4px; }
+        .param-row { display: flex; justify-content: space-between; align-items: center; }
+        .instructions { display: none; } /* Hide heavy text instructions on mobile */
+
+        /* Title Overlay */
+        .title-overlay {
+            position: fixed;
+            bottom: 90px;
+            left: 20px;
+            right: 20px;
+            z-index: 20;
+            text-align: center;
+        }
+        .title-overlay h1 { color: #14f195; font-size: 28px; font-weight: 800; text-shadow: 0 2px 10px rgba(0,0,0,0.8); }
+        .title-overlay p { color: rgba(20, 241, 149, 0.7); font-size: 12px; }
+
+        /* Invest Button Wrapper */
+        .invest-btn-wrapper {
+            position: fixed;
+            bottom: 24px;
+            left: 0;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 50;
+            padding: 0 20px;
+        }
+        .invest-btn {
+            width: 100%;
+            max-width: 320px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            padding: 16px 24px;
+            font-size: 14px;
+            font-weight: 800;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: #030808;
+            background: linear-gradient(135deg, #14f195, #00d4aa);
+            border-radius: 30px;
+            cursor: pointer;
+            box-shadow: 0 4px 20px rgba(20, 241, 149, 0.4);
+            border: none;
+        }
+
+        .scroll-sections { position: relative; z-index: 1; pointer-events: none; }
+        .scroll-sections section { height: 100vh; }
+
+        /* Platform Page Styling */
+        .ticker-wrap { width: 100%; overflow: hidden; background: rgba(16, 185, 129, 0.08); border-bottom: 1px solid rgba(255, 255, 255, 0.05); white-space: nowrap; }
+        .ticker { display: inline-block; animation: marquee 25s linear infinite; }
+        @keyframes marquee { 0% { transform: translate3d(0, 0, 0); } 100% { transform: translate3d(-50%, 0, 0); } }
+        
+        .trading-card { 
+            background: linear-gradient(180deg, rgba(17, 24, 39, 0.9) 0%, rgba(11, 15, 25, 0.95) 100%); 
+            border: 1px solid rgba(255, 255, 255, 0.08); 
+            border-radius: 20px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+        .accent-green { color: #10b981; }
+
+        /* Hide currency legend on small screens to save space */
+        @media (max-width: 640px) {
+            .currency-legend { display: none; }
+            .controls-overlay { width: 140px; top: 12px; left: 12px; }
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <!-- ===== PAGE 1: NEBULA INTRO ===== -->
+    <div id="nebula-page" class="absolute inset-0 z-10 overflow-y-auto">
+        <div id="canvas-container" class="canvas-container"></div>
+
+        <!-- Controls Overlay -->
+        <div id="controls-overlay" class="controls-overlay">
+            <div class="overlay-panel">
+                <div class="panel-header">
+                    <div class="status-dot"></div>
+                    <span class="status-text">Live Stream</span>
+                </div>
+                <div class="flow-section">
+                    <div class="flow-header">
+                        <span class="label">Flow</span>
+                        <span id="flow-percent" class="value">0%</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div id="progress-fill" class="progress-fill"></div>
+                    </div>
+                </div>
+                <div class="params-grid">
+                    <div class="param-row"><span class="label">Nodes</span><span id="node-count" class="value">0</span></div>
+                    <div class="param-row"><span class="label">Speed</span><span id="speed-value" class="value">1.0x</span></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Title Overlay -->
+        <div class="title-overlay">
+            <h1>ProfitNova</h1>
+            <p>Next-Gen Blockchain Staking Platform</p>
+        </div>
+
+        <!-- Invest Button -->
+        <div class="invest-btn-wrapper">
+            <button onclick="switchToStakingPage()" class="invest-btn">
+                <i class="fa-solid fa-wallet"></i> Invest Now
+            </button>
+        </div>
+
+        <div class="scroll-sections">
+            <section></section>
+            <section></section>
+        </div>
+        <div class="grain-overlay"></div>
+    </div>
+
+
+    <!-- ===== PAGE 2: STAKING & TRADING PLATFORM ===== -->
+    <div id="staking-page" class="hidden min-h-screen flex flex-col bg-[#06090e] text-white z-20 relative">
+        <!-- Ticker Bar -->
+        <div class="ticker-wrap text-xs py-2">
+            <div class="ticker flex space-x-8 text-gray-300 font-mono">
+                <span><i class="fa-brands fa-bitcoin text-yellow-500 mr-1"></i> BTC/USDT: <span class="text-emerald-400 font-bold">$94,250.80 (+3.4%)</span></span>
+                <span><i class="fa-brands fa-ethereum text-indigo-400 mr-1"></i> ETH/USDT: <span class="text-emerald-400 font-bold">$3,480.20 (+2.1%)</span></span>
+                <span><i class="fa-solid fa-dollar-sign text-emerald-400 mr-1"></i> USDT/TRX: <span class="text-emerald-400 font-bold">1.0000 (0.0%)</span></span>
+            </div>
+        </div>
+
+        <!-- Navigation -->
+        <nav class="border-b border-gray-800/80 bg-gray-950/90 backdrop-blur sticky top-0 z-50 px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center space-x-2 cursor-pointer" onclick="switchToIntroPage()">
+                <div class="p-2 bg-emerald-500/10 rounded-xl border border-emerald-500/30">
+                    <i class="fa-solid fa-chart-line text-lg accent-green"></i>
+                </div>
+                <span class="text-xl font-extrabold tracking-wide">Profit<span class="accent-green">Nova</span></span>
+            </div>
+            <div class="bg-gray-900 border border-emerald-500/30 px-3 py-1.5 rounded-xl text-xs font-mono text-emerald-400">
+                Bal: <span id="nav-balance" class="font-bold text-white">0.00</span> USDT
+            </div>
+        </nav>
+
+        <!-- MAIN PLATFORM VIEW -->
+        <div id="main-page" class="view-page px-4 py-6 space-y-6">
+            <header class="text-center max-w-lg mx-auto">
+                <h1 class="text-3xl font-black mb-2">Automated <span class="accent-green">USDT Staking</span></h1>
+                <p class="text-gray-400 text-xs">Lock your USDT for 30 days and earn guaranteed daily interest payouts.</p>
+            </header>
+
+            <!-- Plans Section -->
+            <section id="plans" class="space-y-4">
+                <h2 class="text-xl font-extrabold text-center mb-4">Select Staking Tier Plan</h2>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-4xl mx-auto">
+                    <!-- Starter Plan -->
+                    <div class="trading-card border-emerald-500/50 p-5 flex flex-col justify-between">
+                        <div>
+                            <h3 class="font-bold text-base text-white mb-1">Starter Plan</h3>
+                            <div class="text-2xl font-black mb-1">30 <span class="text-xs font-normal text-gray-400">USDT</span></div>
+                            <p class="text-xs text-gray-400 mb-3">Locked for 30 Days</p>
+                            <div class="space-y-1.5 text-xs border-t border-b border-gray-800 py-3 mb-4">
+                                <div class="flex justify-between"><span class="text-gray-400">Daily Return:</span><span class="font-bold text-emerald-400">+2.00 USDT</span></div>
+                                <div class="flex justify-between"><span class="text-gray-400">Total Profit:</span><span class="font-bold text-white">60.00 USDT</span></div>
+                                <div class="flex justify-between"><span class="text-gray-400">Rank:</span><span class="font-bold text-yellow-400">Bronze</span></div>
+                            </div>
+                        </div>
+                        <button onclick="openCheckout('Starter Plan', 30, 2.00, 60.00, 'Tier 1 - Bronze')" class="w-full bg-emerald-500 hover:bg-emerald-600 text-black font-extrabold py-2.5 rounded-xl text-xs uppercase tracking-wider">Invest Now</button>
+                    </div>
+
+                    <!-- Growth Plan -->
+                    <div class="trading-card p-5 flex flex-col justify-between">
+                        <div>
+                            <h3 class="font-bold text-base text-white mb-1">Growth Plan</h3>
+                            <div class="text-2xl font-black mb-1">200 <span class="text-xs font-normal text-gray-400">USDT</span></div>
+                            <p class="text-xs text-gray-400 mb-3">Locked for 30 Days</p>
+                            <div class="space-y-1.5 text-xs border-t border-b border-gray-800 py-3 mb-4">
+                                <div class="flex justify-between"><span class="text-gray-400">Daily Return:</span><span class="font-bold text-emerald-400">+15.00 USDT</span></div>
+                                <div class="flex justify-between"><span class="text-gray-400">Total Profit:</span><span class="font-bold text-white">450.00 USDT</span></div>
+                                <div class="flex justify-between"><span class="text-gray-400">Rank:</span><span class="font-bold text-gray-300">Silver</span></div>
+                            </div>
+                        </div>
+                        <button onclick="openCheckout('Growth Plan', 200, 15.00, 450.00, 'Tier 2 - Silver')" class="w-full bg-gray-800 hover:bg-gray-700 text-white font-bold py-2.5 rounded-xl text-xs uppercase tracking-wider border border-gray-700">Invest Now</button>
+                    </div>
+
+                    <!-- Pro Plan -->
+                    <div class="trading-card p-5 flex flex-col justify-between">
+                        <div>
+                            <h3 class="font-bold text-base text-white mb-1">Pro Plan</h3>
+                            <div class="text-2xl font-black mb-1">1,000 <span class="text-xs font-normal text-gray-400">USDT</span></div>
+                            <p class="text-xs text-gray-400 mb-3">Locked for 30 Days</p>
+                            <div class="space-y-1.5 text-xs border-t border-b border-gray-800 py-3 mb-4">
+                                <div class="flex justify-between"><span class="text-gray-400">Daily Return:</span><span class="font-bold text-emerald-400">+80.00 USDT</span></div>
+                                <div class="flex justify-between"><span class="text-gray-400">Total Profit:</span><span class="font-bold text-white">2,400.00 USDT</span></div>
+                                <div class="flex justify-between"><span class="text-gray-400">Rank:</span><span class="font-bold text-yellow-500">Gold</span></div>
+                            </div>
+                        </div>
+                        <button onclick="openCheckout('Pro Plan', 1000, 80.00, 2400.00, 'Tier 3 - Gold')" class="w-full bg-gray-800 hover:bg-gray-700 text-white font-bold py-2.5 rounded-xl text-xs uppercase tracking-wider border border-gray-700">Invest Now</button>
+                    </div>
+
+                    <!-- VIP Plan -->
+                    <div class="trading-card p-5 flex flex-col justify-between">
+                        <div>
+                            <h3 class="font-bold text-base text-white mb-1">VIP Plan</h3>
+                            <div class="text-2xl font-black mb-1">5,000 <span class="text-xs font-normal text-gray-400">USDT</span></div>
+                            <p class="text-xs text-gray-400 mb-3">Locked for 30 Days</p>
+                            <div class="space-y-1.5 text-xs border-t border-b border-gray-800 py-3 mb-4">
+                                <div class="flex justify-between"><span class="text-gray-400">Daily Return:</span><span class="font-bold text-emerald-400">+450.00 USDT</span></div>
+                                <div class="flex justify-between"><span class="text-gray-400">Total Profit:</span><span class="font-bold text-white">13,500.00 USDT</span></div>
+                                <div class="flex justify-between"><span class="text-gray-400">Rank:</span><span class="font-bold text-cyan-400">Diamond</span></div>
+                            </div>
+                        </div>
+                        <button onclick="openCheckout('VIP Plan', 5000, 450.00, 13500.00, 'Tier 4 - Diamond')" class="w-full bg-gray-800 hover:bg-gray-700 text-white font-bold py-2.5 rounded-xl text-xs uppercase tracking-wider border border-gray-700">Invest Now</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Dashboard Analytics -->
+            <section id="dashboard" class="space-y-4 pt-4">
+                <div class="flex flex-col gap-2">
+                    <h2 class="text-xl font-extrabold">Trading Dashboard</h2>
+                    <span id="user-rank-badge" class="bg-gray-900 border border-yellow-500/40 text-yellow-400 text-xs font-bold px-3 py-1.5 rounded-lg text-center">Rank: No Active Staking</span>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="trading-card p-4">
+                        <p class="text-[10px] text-gray-400 mb-1">Available Balance</p>
+                        <h3 class="text-lg font-black text-white"><span id="dash-balance">0.00</span> USDT</h3>
+                    </div>
+                    <div class="trading-card p-4">
+                        <p class="text-[10px] text-gray-400 mb-1">Active Locked</p>
+                        <h3 class="text-lg font-black text-white"><span id="dash-locked">0.00</span> USDT</h3>
+                    </div>
+                    <div class="trading-card p-4">
+                        <p class="text-[10px] text-gray-400 mb-1">Total Profits</p>
+                        <h3 class="text-lg font-black text-emerald-400"><span id="dash-profit">0.00</span> USDT</h3>
+                    </div>
+                    <div class="trading-card p-4">
+                        <p class="text-[10px] text-gray-400 mb-1">Days Remaining</p>
+                        <h3 class="text-lg font-black text-white"><span id="dash-days">0</span> Days</h3>
+                    </div>
+                </div>
+                <div class="trading-card p-4">
+                    <div class="h-48 w-full"><canvas id="profitChart"></canvas></div>
+                </div>
+                <button onclick="claimDailyReward()" class="w-full bg-emerald-500 hover:bg-emerald-600 text-black font-extrabold py-3 rounded-xl text-xs uppercase tracking-wider">Claim Daily Profit Return</button>
+            </section>
+
+            <!-- Transactions -->
+            <section id="transactions" class="trading-card p-4">
+                <h3 class="text-base font-bold mb-3">Activity Log</h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs text-gray-300">
+                        <thead class="bg-gray-900 text-gray-400 uppercase text-[10px]">
+                            <tr><th class="py-2 px-3">Type</th><th class="py-2 px-3">Amount</th><th class="py-2 px-3">Status</th></tr>
+                        </thead>
+                        <tbody id="tx-table-body">
+                            <tr><td colspan="3" class="text-center py-4 text-gray-500">No activity logged yet.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+
+        <!-- CHECKOUT PAGE -->
+        <div id="checkout-page" class="view-page hidden px-4 py-6 max-w-lg mx-auto w-full">
+            <button onclick="navigatePlatform('main-page')" class="mb-4 bg-gray-900 text-gray-300 text-xs font-bold px-4 py-2 rounded-xl border border-gray-800"><i class="fa-solid fa-arrow-left"></i> Back</button>
+            <div class="space-y-4">
+                <div class="trading-card p-5 border-emerald-500/50">
+                    <h2 id="chk-plan-name" class="text-xl font-black text-white mb-3">Starter Plan</h2>
+                    <div class="space-y-2 text-xs border-t border-gray-800 pt-3">
+                        <div class="flex justify-between"><span class="text-gray-400">Amount:</span><span class="font-bold"><span id="chk-amount">30</span> USDT</span></div>
+                        <div class="flex justify-between"><span class="text-gray-400">Daily Return:</span><span class="font-bold text-emerald-400"><span id="chk-daily">2.00</span> USDT</span></div>
+                        <div class="flex justify-between"><span class="text-gray-400">Rank:</span><span id="chk-rank" class="font-bold text-yellow-400">Tier 1 - Bronze</span></div>
+                    </div>
+                </div>
+                <div class="trading-card p-5 space-y-4">
+                    <h3 class="text-base font-bold text-white">Complete USDT Payment</h3>
+                    <div class="bg-gray-900 p-3 rounded-xl flex items-center gap-3">
+                        <img src="WhatsApp Image 2026-11-09 at 11.41.25 PM.jpeg" alt="QR Scanner" class="w-16 h-16 bg-white p-1 rounded object-contain shrink-0">
+                        <div class="overflow-hidden">
+                            <div class="text-[10px] text-gray-400 mb-0.5">TRC-20 Wallet Address</div>
+                            <div class="text-[11px] font-mono text-emerald-400 break-all select-all">TEkbzpGAGoCcrQeTZP6uGc78b1Lg8LnyTt</div>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="text-xs text-gray-300 font-bold block mb-1">Enter Transaction Hash (TxID)</label>
+                        <input type="text" id="tx-hash-input" placeholder="Enter TxID..." class="w-full bg-gray-900 border border-gray-800 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500">
+                    </div>
+                    <button onclick="confirmInvestmentProcess()" class="w-full bg-emerald-500 text-black font-extrabold py-3 rounded-xl text-xs uppercase tracking-wider">Confirm Investment</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- ===== SCRIPTS ===== -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.min.js"></script>
+    <script>
+        function switchToStakingPage() {
+            document.getElementById('nebula-page').classList.add('hidden');
+            document.getElementById('staking-page').classList.remove('hidden');
+            initChartIfNeeded();
+        }
+
+        function switchToIntroPage() {
+            document.getElementById('staking-page').classList.add('hidden');
+            document.getElementById('nebula-page').classList.remove('hidden');
+        }
+
+        const GRID_WIDTH = 40; // Reduced for mobile performance
+        const GRID_DEPTH = 30;
+        const FLOW_SPEED = 2.0;
+
+        function generateTransactions() {
+            const transactions = [];
+            for (let gx = 0; gx < GRID_WIDTH; gx++) {
+                for (let gz = 0; gz < GRID_DEPTH; gz++) {
+                    if (Math.random() < 0.2) continue;
+                    transactions.push({
+                        gridX: gx,
+                        gridZ: gz,
+                        phase: Math.random() * Math.PI * 2,
+                        size: 0.03 + Math.random() * 0.03,
+                    });
+                }
+            }
+            return transactions;
+        }
+
+        const pointsVertexShader = `
+            uniform float uTime;
+            uniform float uScrollProgress;
+            uniform float uFlowSpeed;
+            attribute float aPhase;
+            attribute float aSize;
+            attribute float aGridX;
+            attribute float aGridZ;
+            varying float vBrightness;
+
+            void main() {
+                float cellSize = 0.5;
+                float flowOffset = mod(uTime * uFlowSpeed + aGridX * cellSize, 40.0 * cellSize);
+                float worldX = flowOffset - 10.0;
+                float worldZ = aGridZ * cellSize - 7.0;
+                float height = sin(worldX * 0.15 + uTime) * 1.5;
+                vec3 pos = vec3(worldX, height, worldZ);
+                vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
+                vBrightness = 0.7;
+                gl_PointSize = aSize * (200.0 / max(-mvPosition.z, 1.0));
+                gl_Position = projectionMatrix * mvPosition;
+            }
+        `;
+
+        const pointsFragmentShader = `
+            uniform vec3 uBaseColor;
+            varying float vBrightness;
+            void main() {
+                vec2 center = gl_PointCoord - vec2(0.5);
+                if (length(center) > 0.5) discard;
+                gl_FragColor = vec4(uBaseColor * vBrightness, 0.8);
+            }
+        `;
+
+        let scene, camera, renderer, pointsMesh;
+        let transactions = [];
+        let flowTime = 0;
+
+        function initNebula() {
+            transactions = generateTransactions();
+            const nodeCountEl = document.getElementById("node-count");
+            if (nodeCountEl) nodeCountEl.textContent = transactions.length.toLocaleString();
+
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color("#030808");
+
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 6, 20);
+            camera.lookAt(0, 0, 0);
+
+            const container = document.getElementById("canvas-container");
+            renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance" });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+            container.appendChild(renderer.domElement);
+
+            const count = transactions.length;
+            const geometry = new THREE.BufferGeometry();
+            const phases = new Float32Array(count);
+            const sizes = new Float32Array(count);
+            const gridXs = new Float32Array(count);
+            const gridZs = new Float32Array(count);
+
+            transactions.forEach((tx, i) => {
+                phases[i] = tx.phase;
+                sizes[i] = tx.size;
+                gridXs[i] = tx.gridX;
+                gridZs[i] = tx.gridZ;
+            });
+
+            geometry.setAttribute("aPhase", new THREE.BufferAttribute(phases, 1));
+            geometry.setAttribute("aSize", new THREE.BufferAttribute(sizes, 1));
+            geometry.setAttribute("aGridX", new THREE.BufferAttribute(gridXs, 1));
+            geometry.setAttribute("aGridZ", new THREE.BufferAttribute(gridZs, 1));
+
+            const material = new THREE.ShaderMaterial({
+                vertexShader: pointsVertexShader,
+                fragmentShader: pointsFragmentShader,
+                uniforms: {
+                    uTime: { value: 0 },
+                    uScrollProgress: { value: 0 },
+                    uFlowSpeed: { value: FLOW_SPEED },
+                    uBaseColor: { value: new THREE.Color("#14f195") },
+                },
+                transparent: true,
+                depthWrite: false,
+                blending: THREE.AdditiveBlending,
+            });
+
+            pointsMesh = new THREE.Points(geometry, material);
+            scene.add(pointsMesh);
+
+            window.addEventListener("resize", () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+
+            window.addEventListener("scroll", () => {
+                const scrollY = window.scrollY;
+                const maxScroll = document.body.scrollHeight - window.innerHeight;
+                let progress = Math.min(scrollY / Math.max(maxScroll, 1), 1);
+                document.getElementById("flow-percent").textContent = `${Math.round(progress * 100)}%`;
+                document.getElementById("progress-fill").style.width = `${progress * 100}%`;
+            }, { passive: true });
+
+            animateNebula();
+        }
+
+        function animateNebula() {
+            requestAnimationFrame(animateNebula);
+            flowTime += 0.016;
+            if (pointsMesh) {
+                pointsMesh.material.uniforms.uTime.value = flowTime;
+            }
+            renderer.render(scene, camera);
+        }
+
+        window.addEventListener("DOMContentLoaded", initNebula);
+
+        // Staking Logic
+        let currentSelectedPlan = null, chartInstance = null;
+        let state = { balance: 0, lockedAmount: 0, dailyRate: 0, totalProfit: 0, daysRemaining: 0, rank: "No Active Staking", claimedToday: false, transactions: [] };
+
+        function navigatePlatform(pageId) {
+            document.querySelectorAll('#staking-page .view-page').forEach(page => page.classList.add('hidden'));
+            document.getElementById(pageId).classList.remove('hidden');
+        }
+
+        function openCheckout(planName, amount, daily, total, rank) {
+            currentSelectedPlan = { planName, amount, daily, total, rank };
+            document.getElementById('chk-plan-name').innerText = planName;
+            document.getElementById('chk-amount').innerText = amount;
+            document.getElementById('chk-daily').innerText = daily.toFixed(2);
+            document.getElementById('chk-rank').innerText = rank;
+            navigatePlatform('checkout-page');
+        }
+
+        function confirmInvestmentProcess() {
+            const txHash = document.getElementById('tx-hash-input').value.trim();
+            if (!txHash) { alert("Kripya TxID enter karein."); return; }
+            state.lockedAmount += currentSelectedPlan.amount;
+            state.dailyRate = currentSelectedPlan.daily;
+            state.daysRemaining = 30;
+            state.rank = currentSelectedPlan.rank;
+            state.claimedToday = false;
+            state.transactions.unshift({ type: `Activated ${currentSelectedPlan.planName}`, amount: currentSelectedPlan.amount, date: new Date().toLocaleTimeString(), status: "Active" });
+            alert("Investment successfully activate ho chuki hai!");
+            updateUI();
+            navigatePlatform('main-page');
+        }
+
+        function updateUI() {
+            document.getElementById('nav-balance').innerText = state.balance.toFixed(2);
+            document.getElementById('dash-balance').innerText = state.balance.toFixed(2);
+            document.getElementById('dash-locked').innerText = state.lockedAmount.toFixed(2);
+            document.getElementById('dash-profit').innerText = state.totalProfit.toFixed(2);
+            document.getElementById('dash-days').innerText = state.daysRemaining;
+            document.getElementById('user-rank-badge').innerText = `Rank: ${state.rank}`;
+            
+            const tbody = document.getElementById('tx-table-body');
+            if (state.transactions.length > 0) {
+                tbody.innerHTML = state.transactions.map(tx => `<tr class="border-b border-gray-800"><td class="py-2.5 px-3 text-emerald-400">${tx.type}</td><td class="py-2.5 px-3">+${tx.amount} USDT</td><td class="py-2.5 px-3"><span class="bg-emerald-500/10 text-emerald-400 text-[10px] px-2 py-0.5 rounded">${tx.status}</span></td></tr>`).join('');
+            }
+        }
+
+        function claimDailyReward() {
+            if (state.lockedAmount === 0) { alert("Koi active investment nahi hai."); return; }
+            if (state.claimedToday) { alert("Aaj ka profit pehle hi claim ho chuka hai."); return; }
+            state.balance += state.dailyRate;
+            state.totalProfit += state.dailyRate;
+            state.claimedToday = true;
+            state.transactions.unshift({ type: "Daily Return", amount: state.dailyRate, date: new Date().toLocaleTimeString(), status: "Completed" });
+            alert(`${state.dailyRate} USDT claim ho gaya!`);
+            updateUI();
+        }
+
+        function initChartIfNeeded() {
+            if (!chartInstance) {
+                const ctx = document.getElementById('profitChart').getContext('2d');
+                chartInstance = new Chart(ctx, {
+                    type: 'line',
+                    data: { labels: ['D1', 'D10', 'D20', 'D30'], datasets: [{ data: [0,20,40,60], borderColor: '#10b981', fill: true, backgroundColor: 'rgba(16, 185, 129, 0.1)' }] },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+                });
+            }
+            updateUI();
+        }
+    </script>
+</body>
+</html>
